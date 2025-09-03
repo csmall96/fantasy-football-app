@@ -1,0 +1,114 @@
+# .github/workflows/generate-previews.yml
+# GitHub Action to automatically generate fantasy football matchup previews daily
+
+name: Generate Fantasy Previews
+
+on:
+  # Run daily at 8 AM UTC (adjust for your timezone)
+  schedule:
+    - cron: '0 8 * * *'
+  
+  # Allow manual triggering from GitHub UI
+  workflow_dispatch:
+  
+  # Run on push to main branch (for testing)
+  push:
+    branches: [ main ]
+    paths:
+      - 'generate-previews.js'
+      - '.github/workflows/generate-previews.yml'
+
+jobs:
+  generate-previews:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # Checkout the repository
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    # Setup Node.js environment
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    # Install dependencies (if you have any in package.json)
+    - name: Install dependencies
+      run: |
+        if [ -f package.json ]; then
+          npm install
+        else
+          echo "No package.json found, skipping npm install"
+        fi
+    
+    # Generate the previews
+    - name: Generate matchup previews
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      run: |
+        echo "🚀 Starting preview generation..."
+        node generate-previews.js
+        
+        # Check if files were generated
+        if [ -f public/previews.json ]; then
+          echo "✅ Previews generated successfully"
+          ls -la public/
+        else
+          echo "❌ Preview generation failed"
+          exit 1
+        fi
+    
+    # Commit and push the generated files
+    - name: Commit and push changes
+      run: |
+        # Configure git
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Add generated files
+        git add public/previews.json public/preview-info.json
+        
+        # Check if there are changes to commit
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          # Commit with timestamp
+          git commit -m "🤖 Auto-update fantasy previews $(date -u +%Y-%m-%d\ %H:%M\ UTC)"
+          
+          # Push changes
+          git push
+          
+          echo "✅ Previews committed and pushed successfully"
+        fi
+    
+    # Optional: Create a deployment (if using Netlify or similar)
+    - name: Trigger deployment
+      run: |
+        echo "🚀 Changes pushed to main branch"
+        echo "Your deployment service should automatically rebuild the site"
+        
+        # If you want to trigger Netlify build manually, uncomment below:
+        # curl -X POST -d {} https://api.netlify.com/build_hooks/YOUR_BUILD_HOOK_ID
+    
+    # Summary step
+    - name: Summary
+      run: |
+        echo "## 📊 Preview Generation Summary" >> $GITHUB_STEP_SUMMARY
+        
+        if [ -f public/preview-info.json ]; then
+          echo "### Generated Files:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ public/previews.json" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ public/preview-info.json" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Preview Info:" >> $GITHUB_STEP_SUMMARY
+          cat public/preview-info.json | jq -r '"- **Generated:** " + .generated_at' >> $GITHUB_STEP_SUMMARY
+          cat public/preview-info.json | jq -r '"- **Week:** " + (.week | tostring)' >> $GITHUB_STEP_SUMMARY
+          cat public/preview-info.json | jq -r '"- **League:** " + .league_name' >> $GITHUB_STEP_SUMMARY
+          cat public/preview-info.json | jq -r '"- **Total Previews:** " + (.total_previews | tostring)' >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Preview generation failed - no preview-info.json found" >> $GITHUB_STEP_SUMMARY
+        fi
