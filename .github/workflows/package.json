@@ -1,0 +1,25 @@
+{
+  "name": "fantasy-football-hub",
+  "version": "1.0.0",
+  "description": "Fantasy football matchup previews with automated AI analysis",
+  "main": "index.html",
+  "scripts": {
+    "generate-previews": "node generate-previews.js",
+    "test-previews": "node generate-previews.js"
+  },
+  "keywords": [
+    "fantasy",
+    "football",
+    "sleeper",
+    "ai",
+    "matchup",
+    "previews"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {},
+  "dependencies": {}
+}
