@@ -22,13 +22,19 @@ jobs:
   generate-previews:
     runs-on: ubuntu-latest
     
+    # Add permissions explicitly
+    permissions:
+      contents: write
+      actions: read
+    
     steps:
-    # Checkout the repository
+    # Checkout the repository with proper token
     - name: Checkout repository
       uses: actions/checkout@v4
-    with:
-      token: ${{ secrets.GITHUB_TOKEN }}
-      persist-credentials: true
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        persist-credentials: true
+        fetch-depth: 0
     
     # Setup Node.js environment
     - name: Setup Node.js
@@ -65,9 +71,9 @@ jobs:
     # Commit and push the generated files
     - name: Commit and push changes
       run: |
-        # Configure git
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+        # Configure git with proper user
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git config --global user.name "github-actions[bot]"
         
         # Add generated files
         git add public/previews.json public/preview-info.json
@@ -80,7 +86,7 @@ jobs:
           git commit -m "🤖 Auto-update fantasy previews $(date -u +%Y-%m-%d\ %H:%M\ UTC)"
           
           # Push changes
-          git push
+          git push origin main
           
           echo "✅ Previews committed and pushed successfully"
         fi
@@ -96,6 +102,7 @@ jobs:
     
     # Summary step
     - name: Summary
+      if: always()
       run: |
         echo "## 📊 Preview Generation Summary" >> $GITHUB_STEP_SUMMARY
         
@@ -106,10 +113,14 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           echo "### Preview Info:" >> $GITHUB_STEP_SUMMARY
-          cat public/preview-info.json | jq -r '"- **Generated:** " + .generated_at' >> $GITHUB_STEP_SUMMARY
-          cat public/preview-info.json | jq -r '"- **Week:** " + (.week | tostring)' >> $GITHUB_STEP_SUMMARY
-          cat public/preview-info.json | jq -r '"- **League:** " + .league_name' >> $GITHUB_STEP_SUMMARY
-          cat public/preview-info.json | jq -r '"- **Total Previews:** " + (.total_previews | tostring)' >> $GITHUB_STEP_SUMMARY
+          if command -v jq &> /dev/null; then
+            cat public/preview-info.json | jq -r '"- **Generated:** " + .generated_at' >> $GITHUB_STEP_SUMMARY || true
+            cat public/preview-info.json | jq -r '"- **Week:** " + (.week | tostring)' >> $GITHUB_STEP_SUMMARY || true
+            cat public/preview-info.json | jq -r '"- **League:** " + .league_name' >> $GITHUB_STEP_SUMMARY || true
+            cat public/preview-info.json | jq -r '"- **Total Previews:** " + (.total_previews | tostring)' >> $GITHUB_STEP_SUMMARY || true
+          else
+            echo "- Preview info available in public/preview-info.json" >> $GITHUB_STEP_SUMMARY
+          fi
         else
           echo "❌ Preview generation failed - no preview-info.json found" >> $GITHUB_STEP_SUMMARY
         fi
